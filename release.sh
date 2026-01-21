@@ -3,6 +3,9 @@ set -euo pipefail
 
 STORAGE_BASE="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases"
 WORK_DIR=$(mktemp -d)
+echo "Working directory: $WORK_DIR"
+
+# shellcheck disable=SC2064
 trap "rm -rf $WORK_DIR" EXIT
 
 # Determine version
@@ -44,14 +47,12 @@ echo "$PREVIOUS_VERSIONS"
 # Download latest version binary
 echo "Downloading latest version $VERSION..."
 LATEST_BIN="$WORK_DIR/claude-code-$VERSION"
-curl -fsSL "$STORAGE_BASE/$VERSION/linux-x64" -o "$LATEST_BIN"
+curl -fsSL "$STORAGE_BASE/$VERSION/darwin-arm64/claude" -o "$LATEST_BIN"
 chmod +x "$LATEST_BIN"
 
 # Download manifest for checksum verification
 echo "Downloading manifest..."
-MANIFEST="$WORK_DIR/manifest.json"
-curl -fsSL "$STORAGE_BASE/$VERSION/manifest.json" -o "$MANIFEST"
-LATEST_SHASUM=$(jq -r '.["linux-x64"]' "$MANIFEST")
+LATEST_SHASUM=$(curl -fsSL "$STORAGE_BASE/$VERSION/manifest.json" | jq -r '.["platforms"]["darwin-arm64"]["checksum"]' | sed 's/^v//')
 echo "Expected shasum for latest: $LATEST_SHASUM"
 
 # Verify latest binary checksum
@@ -75,7 +76,7 @@ for OLD_VERSION in $PREVIOUS_VERSIONS; do
 
   # Download old version
   echo "  Downloading $OLD_VERSION..."
-  if ! curl -fsSL "$STORAGE_BASE/$OLD_VERSION/linux-x64" -o "$OLD_BIN"; then
+  if ! curl -fsSL "$STORAGE_BASE/$OLD_VERSION/darwin-arm64/claude" -o "$OLD_BIN"; then
     echo "  WARNING: Failed to download $OLD_VERSION, skipping..."
     continue
   fi
@@ -100,9 +101,6 @@ for OLD_VERSION in $PREVIOUS_VERSIONS; do
 
   echo "  Patch verified successfully"
   PATCH_FILES+=("$PATCH_FILE")
-
-  # Cleanup
-  rm -f "$OLD_BIN" "$PATCHED_BIN"
 done
 
 # Create release
@@ -123,10 +121,10 @@ for PATCH in "${PATCH_FILES[@]}"; do
 - \`$BASENAME\`"
 done
 
-gh release create "$RELEASE_TAG" \
-  --title "Anthropic just released $RELEASE_TAG!" \
-  --notes "$RELEASE_NOTES" \
-  --latest \
-  "${PATCH_FILES[@]}"
+# gh release create "$RELEASE_TAG" \
+#   --title "Anthropic just released $RELEASE_TAG!" \
+#   --notes "$RELEASE_NOTES" \
+#   --latest \
+#   "${PATCH_FILES[@]}"
 
 echo "Successfully created release $RELEASE_TAG with ${#PATCH_FILES[@]} patch(es)"
