@@ -33,7 +33,7 @@ echo "Release $RELEASE_TAG does not exist"
 
 # Get previous 3 versions from GitHub releases
 echo "Fetching version history from GitHub releases..."
-PREVIOUS_VERSIONS=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -r | head -n 3)
+PREVIOUS_VERSIONS=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -r | head -n 3 | sed 's/^v//')
 
 if [ -z "$PREVIOUS_VERSIONS" ]; then
   echo "No previous versions found, skipping patch generation"
@@ -52,7 +52,7 @@ chmod +x "$LATEST_BIN"
 
 # Download manifest for checksum verification
 echo "Downloading manifest..."
-LATEST_SHASUM=$(curl -fsSL "$STORAGE_BASE/$VERSION/manifest.json" | jq -r '.["platforms"]["darwin-arm64"]["checksum"]' | sed 's/^v//')
+LATEST_SHASUM=$(curl -fsSL "$STORAGE_BASE/$VERSION/manifest.json" | jq -r '.["platforms"]["darwin-arm64"]["checksum"]')
 echo "Expected shasum for latest: $LATEST_SHASUM"
 
 # Verify latest binary checksum
@@ -121,10 +121,10 @@ for PATCH in "${PATCH_FILES[@]}"; do
 - \`$BASENAME\`"
 done
 
-# gh release create "$RELEASE_TAG" \
-#   --title "Anthropic just released $RELEASE_TAG!" \
-#   --notes "$RELEASE_NOTES" \
-#   --latest \
-#   "${PATCH_FILES[@]}"
+gh release create "$RELEASE_TAG" \
+  --title "Anthropic just released $RELEASE_TAG!" \
+  --notes "$RELEASE_NOTES" \
+  --latest \
+  "${PATCH_FILES[@]}"
 
 echo "Successfully created release $RELEASE_TAG with ${#PATCH_FILES[@]} patch(es)"
