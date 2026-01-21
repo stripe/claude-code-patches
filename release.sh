@@ -110,16 +110,7 @@ echo "Creating release: $RELEASE_TAG"
 RELEASE_NOTES="Version: $VERSION
 Changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
 Bump Claude Code using \`./claude-code/bump_claude_version.sh\`
-React to this message with \`:create-minion-gocode:\` and claim the /++es!
-
-## Patches
-This release includes bsdiff patches from previous versions:"
-
-for PATCH in "${PATCH_FILES[@]}"; do
-  BASENAME=$(basename "$PATCH")
-  RELEASE_NOTES="$RELEASE_NOTES
-- \`$BASENAME\`"
-done
+React to this message with \`:create-minion-gocode:\` and claim the /++es!"
 
 gh release create "$RELEASE_TAG" \
   --title "Anthropic just released $RELEASE_TAG!" \
