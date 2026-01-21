@@ -25,6 +25,9 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bsdiff jq
+
       - name: Check and create release
         run: ./release.sh
         env:
