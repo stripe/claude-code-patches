@@ -72,7 +72,7 @@ for OLD_VERSION in $PREVIOUS_VERSIONS; do
   echo "Processing version $OLD_VERSION..."
 
   OLD_BIN="$WORK_DIR/claude-code-$OLD_VERSION"
-  PATCH_FILE="$WORK_DIR/from-$OLD_VERSION.bsdiff"
+  PATCH_FILE="$WORK_DIR/darwin-arm64-from-$OLD_VERSION.bsdiff"
 
   # Download old version
   echo "  Downloading $OLD_VERSION..."
