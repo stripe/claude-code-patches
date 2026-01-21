@@ -6,7 +6,7 @@ on:
   workflow_dispatch: # Allow manual trigger
     inputs:
       version:
-        description: 'Specific version to release (e.g., 0.1.0). Leave empty to use the latest stable version.'
+        description: 'Specific version to release (e.g., 0.1.0), or "npm" to use latest npm version. Leave empty to use the latest stable version.'
         required: false
         type: string
 
@@ -28,7 +28,10 @@ jobs:
       - name: Determine version
         id: npm-version
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
+          if [ "${{ inputs.version }}" = "npm" ]; then
+            VERSION=$(npm show @anthropic-ai/claude-code version)
+            echo "Using latest npm version: $VERSION"
+          elif [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
             echo "Using provided version: $VERSION"
           else
