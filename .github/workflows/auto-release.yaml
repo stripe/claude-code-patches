@@ -1,0 +1,61 @@
+name: Auto-release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Run every 6 hours
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Get latest stable version
+        id: npm-version
+        run: |
+          LATEST_VERSION=$(curl https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/stable)
+          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest npm version: $LATEST_VERSION"
+
+      - name: Check if release exists
+        id: check-release
+        run: |
+          RELEASE_TAG="v${{ steps.npm-version.outputs.latest }}"
+          echo "Checking for release tag: $RELEASE_TAG"
+
+          # Check if release exists
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release $RELEASE_TAG already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release $RELEASE_TAG does not exist"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release
+        if: steps.check-release.outputs.exists == 'false'
+        run: |
+          RELEASE_TAG="v${{ steps.npm-version.outputs.latest }}"
+          echo "Creating release: $RELEASE_TAG"
+
+          gh release create "$RELEASE_TAG" \
+            --title "Anthropic just released $RELEASE_TAG!" \
+            --notes "Version: ${{ steps.npm-version.outputs.latest }}
+          Changelog: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+          Bump Claude Code using \`./claude-code/bump_claude_version.sh\`
+          React to this message with \`:create-minion-gocode:\` and claim the /++es!" \
+            --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
