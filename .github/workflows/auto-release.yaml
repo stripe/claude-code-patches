@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 */6 * * *' # Run every 6 hours
   workflow_dispatch: # Allow manual trigger
+    inputs:
+      version:
+        description: 'Specific version to release (e.g., 0.1.0). Leave empty to use the latest stable version.'
+        required: false
+        type: string
 
 jobs:
   check-and-release:
@@ -20,12 +25,17 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Get latest stable version
+      - name: Determine version
         id: npm-version
         run: |
-          LATEST_VERSION=$(curl https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/stable)
-          echo "latest=$LATEST_VERSION" >> $GITHUB_OUTPUT
-          echo "Latest npm version: $LATEST_VERSION"
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+            echo "Using provided version: $VERSION"
+          else
+            VERSION=$(curl https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/stable)
+            echo "Using latest stable version: $VERSION"
+          fi
+          echo "latest=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check if release exists
         id: check-release
