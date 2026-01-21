@@ -26,7 +26,7 @@ jobs:
           node-version: '18'
 
       - name: Check and create release
-        run: .github/scripts/release.sh
+        run: ./release.sh
         env:
           VERSION_INPUT: ${{ inputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
