@@ -5,9 +5,6 @@ STORAGE_BASE="https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad
 WORK_DIR=$(mktemp -d)
 echo "Working directory: $WORK_DIR"
 
-# shellcheck disable=SC2064
-trap "rm -rf $WORK_DIR" EXIT
-
 # Determine version
 if [ "${VERSION_INPUT:-}" = "npm" ]; then
   VERSION=$(npm show @anthropic-ai/claude-code version)
