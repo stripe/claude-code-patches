@@ -1,6 +1,6 @@
 # claude-code-patches
 
-Provides patches between the last three **stable** Claude Code versions in `.bsdiff` format. Apply using `.bspatch`.
+Provides patches between the last five **stable** Claude Code versions in `.bsdiff` format. Apply using `.bspatch`.
 
 ## Notes on Anthropic's internal API
 
