@@ -30,7 +30,7 @@ echo "Release $RELEASE_TAG does not exist"
 
 # Get previous n versions from GitHub releases
 echo "Fetching version history from GitHub releases..."
-PREVIOUS_VERSIONS=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -r -V | head -n 5 | sed 's/^v//')
+PREVIOUS_VERSIONS=$(gh release list --limit 100 --json tagName --jq '.[].tagName' | sort -r -V | head -n 10 | sed 's/^v//')
 
 if [ -z "$PREVIOUS_VERSIONS" ]; then
   echo "No previous versions found, skipping patch generation"
