@@ -1,0 +1,31 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq python3-yaml shellcheck
+
+      - name: Workflow policy tests
+        run: ./tests/release-policy-test.sh
+
+      - name: Release script tests
+        run: ./tests/release-script-test.sh

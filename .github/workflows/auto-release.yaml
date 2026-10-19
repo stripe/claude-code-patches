@@ -1,35 +1,76 @@
-name: Auto-release
+# Preparation only. This workflow discovers new Claude Code versions and builds
+# round-trip verified patches, but it holds no release-write credential and can
+# never create, edit or delete releases, tags or assets. Publication happens in
+# publish-release.yaml, only for a protected vX.Y.Z tag and only after
+# approval of the protected `release` environment. See README.md.
+name: Auto-release (prepare)
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Run every 6 hours
-  workflow_dispatch: # Allow manual trigger
+    - cron: '0 */6 * * *' # Check for new upstream versions every 6 hours
+  workflow_dispatch:
     inputs:
       version:
-        description: 'Specific version to release (e.g., 0.1.0), or "npm" to use latest npm version. Leave empty to use the latest stable version.'
+        description: 'Specific version to prepare (e.g., 2.1.100), or "npm" to use latest npm version. Leave empty to use the latest stable version.'
         required: false
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release-prepare
+  cancel-in-progress: false
+
 jobs:
-  check-and-release:
+  prepare:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '18'
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y bsdiff jq
 
-      - name: Check and create release
-        run: ./release.sh
+      - name: Prepare and verify patches
+        id: prepare
+        run: ./release.sh prepare --out "$RUNNER_TEMP/prepared"
         env:
           VERSION_INPUT: ${{ inputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREPARE_SOURCE_COMMIT: ${{ github.sha }}
+          # Read-only token (contents: read) used to list existing releases.
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload prepared patches for review
+        if: steps.prepare.outputs.release_exists == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: prepared-patches
+          path: ${{ runner.temp }}/prepared
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Summarize
+        if: steps.prepare.outputs.release_exists == 'false'
+        run: |
+          {
+            echo "### New Claude Code version ready: \`$TAG\`"
+            echo ""
+            echo "Patches were built and round-trip verified but **not published**."
+            echo "To publish, an authorized maintainer creates the protected tag \`$TAG\`"
+            echo "on an approved commit of \`main\`; the *Publish release* workflow then"
+            echo "waits for independent approval of the \`release\` environment."
+          } >>"$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Release pending::$TAG is prepared and awaiting a protected tag and approval"
+        env:
+          TAG: ${{ steps.prepare.outputs.tag }}

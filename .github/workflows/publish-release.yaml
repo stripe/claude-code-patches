@@ -1,0 +1,97 @@
+# Trusted publication. Runs only for a pushed vX.Y.Z tag. The tag must already
+# exist, must be created by an authorized actor (enforced by the version-tag
+# ruleset), and must point to a commit on main. Patches are rebuilt from the
+# tagged commit with read-only permissions; the job that receives
+# contents:write is gated on the protected `release` environment, re-verifies
+# every digest and patch round trip, and publishes with --verify-tag so it can
+# never create a tag. See README.md for the required repository settings.
+name: Publish release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+concurrency:
+  group: publish-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_exists: ${{ steps.build.outputs.release_exists }}
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require tagged commit to be on main
+        run: |
+          git merge-base --is-ancestor "$COMMIT" origin/main ||
+            { echo "::error::$TAG ($COMMIT) is not reachable from main"; exit 1; }
+        env:
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bsdiff jq
+
+      - name: Build and verify patches
+        id: build
+        run: ./release.sh build --tag "$TAG" --commit "$COMMIT" --out "$RUNNER_TEMP/dist"
+        env:
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload verified patches
+        if: steps.build.outputs.release_exists == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-dist
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    if: needs.build.outputs.release_exists == 'false'
+    runs-on: ubuntu-latest
+    # Protected environment: required independent reviewers, self-review
+    # prevented, deployments restricted to the protected vX.Y.Z tag pattern.
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bsdiff jq
+
+      - name: Download verified patches
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-dist
+          path: ${{ runner.temp }}/dist
+
+      - name: Verify and publish release
+        run: ./release.sh publish --tag "$TAG" --commit "$COMMIT" --dir "$RUNNER_TEMP/dist"
+        env:
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
